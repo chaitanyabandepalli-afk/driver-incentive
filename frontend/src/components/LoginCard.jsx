@@ -18,24 +18,10 @@ function LoginCard({ onLogin }) {
     const trimmedUser = username.trim().toLowerCase();
     const trimmedPass = password.trim();
 
-    if (
-      (trimmedUser === "admin" && trimmedPass === "admin") ||
-      (trimmedUser === "chaitanyabandepalli@gmail.com" && trimmedPass === "123456")
-    ) {
+    if (trimmedUser === "chaitanyabandepalli@gmail.com" && trimmedPass === "123456") {
       onLogin({ username: trimmedUser, role: "admin" });
-    } else if (trimmedUser === "user" && trimmedPass === "user") {
-      onLogin({ username: "user", role: "user" });
     } else {
-      setError("Invalid username or password.");
-    }
-  };
-
-  const handleQuickLogin = (roleName) => {
-    setError("");
-    if (roleName === "admin") {
-      onLogin({ username: "admin", role: "admin" });
-    } else {
-      onLogin({ username: "user", role: "user" });
+      onLogin({ username: username.trim(), role: "user" });
     }
   };
 
@@ -60,11 +46,11 @@ function LoginCard({ onLogin }) {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username or Email</label>
             <input
               id="username"
               type="text"
-              placeholder="Enter username (e.g. admin)"
+              placeholder="Enter username or email"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               className="login-input"
@@ -97,30 +83,6 @@ function LoginCard({ onLogin }) {
             Sign In
           </button>
         </form>
-
-        <div className="demo-credentials-box">
-          <h3>Demo Accounts</h3>
-          <p>Click below for quick access or use credentials:</p>
-          <div className="quick-login-buttons">
-            <button
-              type="button"
-              className="quick-login-btn admin-btn"
-              onClick={() => handleQuickLogin("admin")}
-            >
-              🔑 Admin Access
-              <small>Full read/write (admin / admin)</small>
-            </button>
-
-            <button
-              type="button"
-              className="quick-login-btn user-btn"
-              onClick={() => handleQuickLogin("user")}
-            >
-              👥 User Access
-              <small>Read-only (user / user)</small>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
