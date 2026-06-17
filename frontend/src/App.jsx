@@ -15,22 +15,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem("driver_tracker_user");
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch (error) {
-      console.error("Failed to parse user from localStorage:", error);
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState(null);
 
   const handleLogin = (user) => {
-    try {
-      localStorage.setItem("driver_tracker_user", JSON.stringify(user));
-    } catch (error) {
-      console.error("Failed to save user to localStorage:", error);
-    }
     setCurrentUser(user);
     goToPage("home");
   };
@@ -38,11 +25,6 @@ function App() {
   const handleLogout = () => {
     const confirmLogout = window.confirm("Are you sure you want to log out?");
     if (confirmLogout) {
-      try {
-        localStorage.removeItem("driver_tracker_user");
-      } catch (error) {
-        console.error("Failed to remove user from localStorage:", error);
-      }
       setCurrentUser(null);
       setEditingRecord(null);
     }
@@ -242,12 +224,42 @@ function App() {
     }
   };
 
+  let videoSrc = "/background.mp4";
   if (!currentUser) {
-    return <LoginCard onLogin={handleLogin} />;
+    videoSrc = "/background.mp4";
+  } else if (activePage === "dashboard") {
+    videoSrc = "/dashboard-bg.mp4";
+  } else if (activePage === "form") {
+    videoSrc = "/form-bg.mp4";
+  } else if (activePage === "reports") {
+    videoSrc = "/reports-bg.mp4";
+  } else {
+    videoSrc = "/background.mp4";
+  }
+
+  if (!currentUser) {
+    return (
+      <>
+        <div className="global-video-bg">
+          <video key={videoSrc} autoPlay muted loop playsInline>
+            <source src={videoSrc} type="video/mp4" />
+          </video>
+          <div className="global-video-overlay"></div>
+        </div>
+        <LoginCard onLogin={handleLogin} />
+      </>
+    );
   }
 
   return (
     <div className="app">
+      <div className="global-video-bg">
+        <video key={videoSrc} autoPlay muted loop playsInline>
+          <source src={videoSrc} type="video/mp4" />
+        </video>
+        <div className="global-video-overlay"></div>
+      </div>
+
       {/* Global Header Bar */}
       <header className="global-header">
         <div className="header-brand">
@@ -280,14 +292,6 @@ function App() {
 
       {activePage === "home" && (
         <main className="app-page home-view">
-          {/* ── Video Background ── */}
-          <div className="home-video-bg">
-            <video autoPlay muted loop playsInline>
-              <source src="/background.mp4" type="video/mp4" />
-            </video>
-            <div className="home-video-overlay"></div>
-          </div>
-
           {/* ── Hero Section ── */}
           <section className="home-hero">
             <div className="home-hero-content">
@@ -368,120 +372,81 @@ function App() {
       )}
 
       {activePage === "form" && (
+        <main className="app-page inner-page">
+          <div className="page-navbar">
+            <button
+              type="button"
+              className="back-home-btn"
+              onClick={() => {
+                setEditingRecord(null);
+                goToPage("home");
+              }}
+            >
+              ← Back to Home
+            </button>
 
-        <>
-          <div className="form-video-bg">
-            <video autoPlay muted loop playsInline>
-              <source src="/form-bg.mp4" type="video/mp4" />
-            </video>
-            <div className="form-video-overlay"></div>
+            <div className="page-title-box">
+              <p>Page 2 of 4</p>
+              <h2>{editingRecord ? "Edit Driver Record" : "Add Driver Record"}</h2>
+            </div>
           </div>
 
-
-          <main className="app-page inner-page">
-            <div className="page-navbar">
-              <button
-                type="button"
-                className="back-home-btn"
-                onClick={() => {
-                  setEditingRecord(null);
-                  goToPage("home");
-                }}
-              >
-                ← Back to Home
-              </button>
-
-              <div className="page-title-box">
-                <p>Page 2 of 4</p>
-                <h2>{editingRecord ? "Edit Driver Record" : "Add Driver Record"}</h2>
-              </div>
-            </div>
-
-            <DriverEntryForm
-              onAddRecord={addDriverRecord}
-              editingRecord={editingRecord}
-              onUpdateRecord={updateDriverRecord}
-              onCancelEdit={cancelEdit}
-            />
-          </main>
-        </>
+          <DriverEntryForm
+            onAddRecord={addDriverRecord}
+            editingRecord={editingRecord}
+            onUpdateRecord={updateDriverRecord}
+            onCancelEdit={cancelEdit}
+          />
+        </main>
       )}
 
       {activePage === "dashboard" && (
+        <main className="app-page inner-page">
+          <div className="page-navbar">
+            <button
+              type="button"
+              className="back-home-btn"
+              onClick={() => goToPage("home")}
+            >
+              ← Back to Home
+            </button>
 
-
-        <>
-          <div className="dashboard-video-bg">
-            <video autoPlay muted loop playsInline>
-              <source src="/dashboard-bg.mp4" type="video/mp4" />
-            </video>
-            <div className="dashboard-video-overlay"></div>
+            <div className="page-title-box">
+              <p>Page 3 of 4</p>
+              <h2>Dashboard</h2>
+            </div>
           </div>
 
-
-
-          <main className="app-page inner-page">
-            <div className="page-navbar">
-              <button
-                type="button"
-                className="back-home-btn"
-                onClick={() => goToPage("home")}
-              >
-                ← Back to Home
-              </button>
-
-              <div className="page-title-box">
-                <p>Page 3 of 4</p>
-                <h2>Dashboard</h2>
-              </div>
-            </div>
-
-            <DriverDashboard
-              records={driverRecords}
-              userRole={currentUser.role}
-              onClearAllRecords={clearAllRecords}
-              onDeleteRecord={deleteDriverRecord}
-              onEditRecord={startEditRecord}
-              onUpdateStatus={updateDriverStatus}
-            />
-          </main>
-        </>
+          <DriverDashboard
+            records={driverRecords}
+            userRole={currentUser.role}
+            onClearAllRecords={clearAllRecords}
+            onDeleteRecord={deleteDriverRecord}
+            onEditRecord={startEditRecord}
+            onUpdateStatus={updateDriverStatus}
+          />
+        </main>
       )}
 
       {activePage === "reports" && (
+        <main className="app-page inner-page">
+          <div className="page-navbar">
+            <button
+              type="button"
+              className="back-home-btn"
+              onClick={() => goToPage("home")}
+            >
+              ← Back to Home
+            </button>
 
-        <>
-          <div className="reports-video-bg">
-            <video autoPlay muted loop playsInline>
-              <source src="/reports-bg.mp4" type="video/mp4" />
-            </video>
-            <div className="reports-video-overlay"></div>
+            <div className="page-title-box">
+              <p>Page 4 of 4</p>
+              <h2>Reports & Analytics</h2>
+            </div>
           </div>
 
-
-
-
-
-
-          <main className="app-page inner-page">
-            <div className="page-navbar">
-              <button
-                type="button"
-                className="back-home-btn"
-                onClick={() => goToPage("home")}
-              >
-                ← Back to Home
-              </button>
-
-              <div className="page-title-box">
-                <p>Page 4 of 4</p>
-                <h2>Reports & Analytics</h2>
-              </div>
-            </div>
-
-            <ReportsAnalytics records={driverRecords} />
-          </main>
-        </>
+          <ReportsAnalytics records={driverRecords} />
+        </main>
       )}
 
       <footer className="footer">

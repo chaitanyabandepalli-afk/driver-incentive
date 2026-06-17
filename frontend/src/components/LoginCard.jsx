@@ -27,14 +27,6 @@ function LoginCard({ onLogin }) {
 
   return (
     <div className="login-container">
-      {/* Background Video wrapper to match styling */}
-      <div className="login-video-bg">
-        <video autoPlay muted loop playsInline>
-          <source src="/background.mp4" type="video/mp4" />
-        </video>
-        <div className="login-video-overlay"></div>
-      </div>
-
       <div className="login-card-wrapper">
         <div className="login-header">
           <p className="login-tag">Manivtha Tours &amp; Travels</p>
