@@ -1,0 +1,30 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model DriverRecord {
+  id                    Int      @id @default(autoincrement())
+  driverId              String
+  driverName            String
+  month                 String
+  tripsCompleted        Int
+  onTimeTrips           Int
+  lateTrips             Int
+  punctualityPercentage Float
+  customerRating        Float
+  complaints            Int
+  baseSalary            Int
+  incentiveAmount       Int
+  finalPayout           Int
+  status                String   @default("Pending")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Enforces that a driver can only have one incentive record per month
+  @@unique([driverId, month])
+}
