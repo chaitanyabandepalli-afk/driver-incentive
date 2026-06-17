@@ -64,7 +64,7 @@ body {
 /* ── APP SHELL ─────────────────────────────────────────────── */
 .app {
   min-height: 100vh;
-  background: var(--navy);
+  background: transparent;
   position: relative;
 }
 
@@ -83,7 +83,7 @@ body {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -2;
   background:
     radial-gradient(ellipse 80% 60% at 10% 20%, rgba(59,126,255,0.28) 0%, transparent 60%),
     radial-gradient(ellipse 60% 50% at 90% 15%, rgba(0,229,200,0.22) 0%, transparent 55%),
