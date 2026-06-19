@@ -15,6 +15,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [wakingUp, setWakingUp] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -31,7 +32,7 @@ function App() {
     }
   };
 
-  const fetchRecords = async (retries = 2) => {
+  const fetchRecords = async (retries = 15) => {
     setLoading(true);
     setError(null);
     try {
@@ -42,17 +43,20 @@ function App() {
       const data = await response.json();
       setDriverRecords(data);
       setWakingUp(false);
+      setRetryAttempt(0);
       setLoading(false);
     } catch (err) {
       console.error(err);
       if (retries > 0) {
         setWakingUp(true);
-        // Wait 4 seconds before retrying
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+        setRetryAttempt(16 - retries);
+        // Wait 5 seconds before retrying
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         return fetchRecords(retries - 1);
       }
       setWakingUp(false);
-      setError("Could not connect to the backend database server. The server might be waking up from sleep. Please try clicking 'Retry Connection' in a moment.");
+      setRetryAttempt(0);
+      setError("Could not connect to the backend database server. The server took too long to wake up. Please click 'Retry Connection' to try again.");
       setLoading(false);
     }
   };
@@ -295,7 +299,11 @@ function App() {
       {loading && (
         <div className="app-loading-overlay">
           <div className="spinner"></div>
-          <p>{wakingUp ? "Waking up database server (takes about 50 seconds on cold start)..." : "Connecting to Supabase database..."}</p>
+          <p>
+            {wakingUp
+              ? `Waking up database server... (Attempt ${retryAttempt}/15 - takes up to 75 seconds on cold start)`
+              : "Connecting to Supabase database..."}
+          </p>
         </div>
       )}
 
