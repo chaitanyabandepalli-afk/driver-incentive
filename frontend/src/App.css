@@ -2355,7 +2355,7 @@ tbody tr:last-child td { border-bottom: none; }
   inset: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 0;
+  z-index: -1;
   overflow: hidden;
   pointer-events: none;
 }
