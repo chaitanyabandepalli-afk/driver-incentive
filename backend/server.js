@@ -395,6 +395,29 @@ app.post("/api/records/seed", async (req, res) => {
   }
 });
 
+// Diagnostic endpoint to check database connectivity
+app.get("/api/diag", async (req, res) => {
+  try {
+    const url = process.env.DATABASE_URL || "NOT SET";
+    const maskedUrl = url.replace(/:([^:@]+)@/, ":[MASKED_PASSWORD]@");
+    const count = await prisma.driverRecord.count();
+    res.json({
+      status: "success",
+      message: "Database connection is working!",
+      count,
+      databaseUrl: maskedUrl
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Database connection failed!",
+      error: error.message,
+      stack: error.stack,
+      databaseUrl: process.env.DATABASE_URL ? "URL is set" : "URL is NOT set"
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });
