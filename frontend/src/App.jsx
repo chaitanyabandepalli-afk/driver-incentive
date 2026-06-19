@@ -14,6 +14,7 @@ function App() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [wakingUp, setWakingUp] = useState(false);
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -30,7 +31,7 @@ function App() {
     }
   };
 
-  const fetchRecords = async () => {
+  const fetchRecords = async (retries = 2) => {
     setLoading(true);
     setError(null);
     try {
@@ -40,10 +41,18 @@ function App() {
       }
       const data = await response.json();
       setDriverRecords(data);
+      setWakingUp(false);
+      setLoading(false);
     } catch (err) {
       console.error(err);
-      setError("Could not connect to the backend database server. Please ensure the backend is running.");
-    } finally {
+      if (retries > 0) {
+        setWakingUp(true);
+        // Wait 4 seconds before retrying
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        return fetchRecords(retries - 1);
+      }
+      setWakingUp(false);
+      setError("Could not connect to the backend database server. The server might be waking up from sleep. Please try clicking 'Retry Connection' in a moment.");
       setLoading(false);
     }
   };
@@ -286,7 +295,7 @@ function App() {
       {loading && (
         <div className="app-loading-overlay">
           <div className="spinner"></div>
-          <p>Connecting to Supabase database...</p>
+          <p>{wakingUp ? "Waking up database server (takes about 50 seconds on cold start)..." : "Connecting to Supabase database..."}</p>
         </div>
       )}
 
