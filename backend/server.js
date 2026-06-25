@@ -99,6 +99,43 @@ function validateRecordData(data) {
   return errors;
 }
 
+// Helpers for relational tables
+async function logAudit(action, details, performedBy, recordId = null) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        action,
+        details,
+        performedBy: performedBy || "System",
+        recordId
+      }
+    });
+  } catch (error) {
+    console.error("Audit logging failed:", error);
+  }
+}
+
+async function handlePaymentRecord(recordId, finalPayout, driverId, month) {
+  try {
+    const existingPayment = await prisma.paymentRecord.findFirst({
+      where: { recordId }
+    });
+
+    if (!existingPayment) {
+      await prisma.paymentRecord.create({
+        data: {
+          recordId,
+          amount: finalPayout,
+          transactionId: `TXN-${driverId}-${month.toUpperCase()}-${Date.now().toString().slice(-4)}`
+        }
+      });
+      await logAudit("PAYMENT_GENERATED", `Processed bonus payment of ₹${finalPayout} for driver ${driverId}.`, "System", recordId);
+    }
+  } catch (err) {
+    console.error("Failed to create payment record:", err);
+  }
+}
+
 // Endpoints
 
 app.get("/", (req, res) => {
@@ -107,6 +144,36 @@ app.get("/", (req, res) => {
 
 app.get("/api", (req, res) => {
   res.json({ status: "healthy", message: "Use /api/records to fetch data." });
+});
+
+// GET all audit logs
+app.get("/api/audit-logs", async (req, res) => {
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { id: "desc" },
+      take: 20
+    });
+    res.json(logs);
+  } catch (error) {
+    console.error("Fetch audit logs error:", error);
+    res.status(500).json({ error: "Failed to fetch audit logs" });
+  }
+});
+
+// GET all payment records
+app.get("/api/payments", async (req, res) => {
+  try {
+    const payments = await prisma.paymentRecord.findMany({
+      include: {
+        record: true
+      },
+      orderBy: { id: "desc" }
+    });
+    res.json(payments);
+  } catch (error) {
+    console.error("Fetch payments error:", error);
+    res.status(500).json({ error: "Failed to fetch payment records" });
+  }
 });
 
 // 1. GET all records with optional query search
@@ -118,8 +185,8 @@ app.get("/api/records", async (req, res) => {
 
     if (search) {
       whereClause.OR = [
-        { driverName: { contains: search } },
-        { driverId: { contains: search } }
+        { driverName: { contains: search, mode: 'insensitive' } },
+        { driverId: { contains: search, mode: 'insensitive' } }
       ];
     }
 
@@ -184,7 +251,8 @@ app.post("/api/records", async (req, res) => {
       customerRating,
       complaints,
       baseSalary,
-      status
+      status,
+      performedBy
     } = req.body;
 
     const trimmedDriverId = driverId.trim();
@@ -204,6 +272,24 @@ app.post("/api/records", async (req, res) => {
       return res.status(400).json({
         errors: [`A performance record already exists for driver ${trimmedDriverId} in ${trimmedMonth}.`]
       });
+    }
+
+    // Ensure driver master record exists
+    let driverExists = await prisma.driver.findUnique({
+      where: { driverId: trimmedDriverId }
+    });
+
+    if (!driverExists) {
+      driverExists = await prisma.driver.create({
+        data: {
+          driverId: trimmedDriverId,
+          name: driverName.trim(),
+          licenseNumber: `AUTO-${trimmedDriverId}-${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: "9999999999",
+          email: `${trimmedDriverId.toLowerCase()}@manivtha.com`
+        }
+      });
+      await logAudit("DRIVER_CREATED", `Automatically registered master profile for driver ${trimmedDriverId}.`, performedBy || "System");
     }
 
     const metrics = calculateIncentive(
@@ -231,6 +317,17 @@ app.post("/api/records", async (req, res) => {
         status: status || "Pending"
       }
     });
+
+    if (newRecord.status === "Paid") {
+      await handlePaymentRecord(newRecord.id, newRecord.finalPayout, trimmedDriverId, trimmedMonth);
+    }
+
+    await logAudit(
+      "CREATE_RECORD",
+      `Added performance record for driver ${trimmedDriverId} for ${trimmedMonth}. Final payout: ₹${metrics.finalPayout}.`,
+      performedBy || "Admin",
+      newRecord.id
+    );
 
     res.status(201).json(newRecord);
   } catch (error) {
@@ -262,7 +359,8 @@ app.put("/api/records/:id", async (req, res) => {
       customerRating,
       complaints,
       baseSalary,
-      status
+      status,
+      performedBy
     } = req.body;
 
     const trimmedDriverId = driverId.trim();
@@ -293,6 +391,24 @@ app.put("/api/records/:id", async (req, res) => {
       });
     }
 
+    // Ensure driver master record exists
+    let driverExists = await prisma.driver.findUnique({
+      where: { driverId: trimmedDriverId }
+    });
+
+    if (!driverExists) {
+      driverExists = await prisma.driver.create({
+        data: {
+          driverId: trimmedDriverId,
+          name: driverName.trim(),
+          licenseNumber: `AUTO-${trimmedDriverId}-${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: "9999999999",
+          email: `${trimmedDriverId.toLowerCase()}@manivtha.com`
+        }
+      });
+      await logAudit("DRIVER_CREATED", `Automatically registered master profile for driver ${trimmedDriverId}.`, performedBy || "System");
+    }
+
     const metrics = calculateIncentive(
       Number(tripsCompleted),
       Number(onTimeTrips),
@@ -320,6 +436,17 @@ app.put("/api/records/:id", async (req, res) => {
       }
     });
 
+    if (updatedRecord.status === "Paid") {
+      await handlePaymentRecord(updatedRecord.id, updatedRecord.finalPayout, trimmedDriverId, trimmedMonth);
+    }
+
+    await logAudit(
+      "UPDATE_RECORD",
+      `Updated performance record for driver ${trimmedDriverId} for ${trimmedMonth}.`,
+      performedBy || "Admin",
+      updatedRecord.id
+    );
+
     res.json(updatedRecord);
   } catch (error) {
     console.error("Update record error:", error);
@@ -331,13 +458,13 @@ app.put("/api/records/:id", async (req, res) => {
 app.patch("/api/records/:id/status", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status } = req.body;
+    const { status, performedBy } = req.body;
 
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid record ID" });
     }
 
-    const validStatuses = ["Pending", "Approved", "Paid", "Rejected"];
+    const validStatuses = ["Pending", "Approved", "Paid", "Rejected", "Archived"];
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({ error: "Invalid status value" });
     }
@@ -346,6 +473,17 @@ app.patch("/api/records/:id/status", async (req, res) => {
       where: { id },
       data: { status }
     });
+
+    if (status === "Paid") {
+      await handlePaymentRecord(updatedRecord.id, updatedRecord.finalPayout, updatedRecord.driverId, updatedRecord.month);
+    }
+
+    await logAudit(
+      "STATUS_CHANGE",
+      `Changed status of record ID ${id} to ${status}.`,
+      performedBy || "Admin",
+      updatedRecord.id
+    );
 
     res.json(updatedRecord);
   } catch (error) {
@@ -358,13 +496,29 @@ app.patch("/api/records/:id/status", async (req, res) => {
 app.delete("/api/records/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const { performedBy } = req.query;
+
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid record ID" });
+    }
+
+    const record = await prisma.driverRecord.findUnique({
+      where: { id }
+    });
+
+    if (!record) {
+      return res.status(404).json({ error: "Record not found" });
     }
 
     await prisma.driverRecord.delete({
       where: { id }
     });
+
+    await logAudit(
+      "DELETE_RECORD",
+      `Deleted performance record for driver ${record.driverId} (${record.driverName}) for ${record.month}.`,
+      performedBy || "Admin"
+    );
 
     res.json({ message: "Record deleted successfully" });
   } catch (error) {
@@ -376,7 +530,9 @@ app.delete("/api/records/:id", async (req, res) => {
 // 7. POST clear all records
 app.post("/api/records/clear", async (req, res) => {
   try {
+    const { performedBy } = req.body;
     await prisma.driverRecord.deleteMany();
+    await logAudit("CLEAR_RECORDS", "Cleared all driver performance records from the system.", performedBy || "Admin");
     res.json({ message: "All records cleared successfully" });
   } catch (error) {
     console.error("Clear all records error:", error);
@@ -387,7 +543,9 @@ app.post("/api/records/clear", async (req, res) => {
 // 8. POST seed database
 app.post("/api/records/seed", async (req, res) => {
   try {
+    const { performedBy } = req.body;
     await seedData();
+    await logAudit("DB_SEED", "Database re-seeded successfully with mock data.", performedBy || "System");
     res.json({ message: "Database re-seeded successfully with mock data" });
   } catch (error) {
     console.error("Seed endpoint error:", error);
@@ -401,10 +559,16 @@ app.get("/api/diag", async (req, res) => {
     const url = process.env.DATABASE_URL || "NOT SET";
     const maskedUrl = url.replace(/:([^:@]+)@/, ":[MASKED_PASSWORD]@");
     const count = await prisma.driverRecord.count();
+    const driverCount = await prisma.driver.count();
+    const paymentCount = await prisma.paymentRecord.count();
+    const auditCount = await prisma.auditLog.count();
     res.json({
       status: "success",
       message: "Database connection is working!",
       count,
+      driverCount,
+      paymentCount,
+      auditCount,
       databaseUrl: maskedUrl
     });
   } catch (error) {
@@ -421,3 +585,4 @@ app.get("/api/diag", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });
+

@@ -18,6 +18,9 @@ function App() {
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const [currentUser, setCurrentUser] = useState(null);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -29,6 +32,19 @@ function App() {
     if (confirmLogout) {
       setCurrentUser(null);
       setEditingRecord(null);
+      setShowNotifications(false);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audit-logs`);
+      if (response.ok) {
+        const data = await response.json();
+        setAuditLogs(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch audit logs:", err);
     }
   };
 
@@ -63,6 +79,7 @@ function App() {
 
   useEffect(() => {
     fetchRecords();
+    fetchAuditLogs();
   }, []);
 
   useEffect(() => {
@@ -70,6 +87,58 @@ function App() {
       goToPage("home");
     }
   }, [activePage, currentUser]);
+
+  useEffect(() => {
+    const newAlerts = [];
+    let alertId = 1;
+
+    driverRecords.forEach((record) => {
+      // 1. Check for low punctuality (below 85%)
+      if (record.punctualityPercentage < 85) {
+        newAlerts.push({
+          id: alertId++,
+          type: "warning",
+          title: "Low Punctuality Alert",
+          message: `${record.driverName} (${record.driverId}) is at ${record.punctualityPercentage}% punctuality in ${record.month}.`,
+          time: "Just now"
+        });
+      }
+
+      // 2. Check for high complaints
+      if (record.complaints > 1) {
+        newAlerts.push({
+          id: alertId++,
+          type: "danger",
+          title: "Complaints Escalation",
+          message: `${record.driverName} has received ${record.complaints} complaints. Rating is ${record.customerRating}/5.`,
+          time: "Just now"
+        });
+      }
+
+      // 3. Check for Pending review
+      if (record.status === "Pending") {
+        newAlerts.push({
+          id: alertId++,
+          type: "info",
+          title: "Pending Status Review",
+          message: `${record.driverName} (${record.month}) incentive is waiting for approval.`,
+          time: "Review needed"
+        });
+      }
+    });
+
+    if (driverRecords.length > 0) {
+      newAlerts.push({
+        id: alertId++,
+        type: "deadline",
+        title: "Submit Monthly Logs",
+        message: "Operations deadline: Approve all June performance records before the system lock.",
+        time: "System reminder"
+      });
+    }
+
+    setAlerts(newAlerts);
+  }, [driverRecords]);
 
   const goToPage = (pageName) => {
     setActivePage(pageName);
@@ -82,7 +151,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/records`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newRecord),
+        body: JSON.stringify({ ...newRecord, performedBy: currentUser?.email || "Admin" }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -94,6 +163,7 @@ function App() {
       setEditingRecord(null);
       goToPage("dashboard");
       alert("Driver record saved successfully!");
+      await fetchAuditLogs();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -109,7 +179,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/records/${updatedRecord.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedRecord),
+        body: JSON.stringify({ ...updatedRecord, performedBy: currentUser?.email || "Admin" }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -123,6 +193,7 @@ function App() {
       setEditingRecord(null);
       goToPage("dashboard");
       alert("Driver record updated successfully!");
+      await fetchAuditLogs();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -137,7 +208,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/records/${recordId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, performedBy: currentUser?.email || "Admin" }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -146,6 +217,7 @@ function App() {
       setDriverRecords((prevRecords) =>
         prevRecords.map((record) => (record.id === recordId ? data : record))
       );
+      await fetchAuditLogs();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -162,12 +234,15 @@ function App() {
       try {
         const response = await fetch(`${API_BASE_URL}/records/clear`, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ performedBy: currentUser?.email || "Admin" }),
         });
         if (!response.ok) {
           throw new Error("Failed to clear records");
         }
         setDriverRecords([]);
         setEditingRecord(null);
+        await fetchAuditLogs();
       } catch (err) {
         console.error(err);
         alert(err.message);
@@ -185,7 +260,7 @@ function App() {
     if (confirmDelete) {
       setLoading(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/records/${recordId}`, {
+        const response = await fetch(`${API_BASE_URL}/records/${recordId}?performedBy=${encodeURIComponent(currentUser?.email || "Admin")}`, {
           method: "DELETE",
         });
         if (!response.ok) {
@@ -198,6 +273,7 @@ function App() {
         if (editingRecord && editingRecord.id === recordId) {
           setEditingRecord(null);
         }
+        await fetchAuditLogs();
       } catch (err) {
         console.error(err);
         alert(err.message);
@@ -222,11 +298,14 @@ function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/records/seed`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ performedBy: "System" }),
       });
       if (!response.ok) {
         throw new Error("Failed to load sample records");
       }
       await fetchRecords();
+      await fetchAuditLogs();
       goToPage("dashboard");
       alert("Sample data loaded successfully!");
     } catch (err) {
@@ -236,6 +315,7 @@ function App() {
       setLoading(false);
     }
   };
+
 
   let videoSrc = "/background.mp4";
   if (!currentUser) {
@@ -280,6 +360,42 @@ function App() {
           <h1>Manivtha Tours &amp; Travels</h1>
         </div>
         <div className="header-user-info">
+          {/* Notification Bell Dropdown */}
+          <div className="notification-bell-container">
+            <button
+              type="button"
+              className="notification-bell-btn"
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              🔔
+              {alerts.length > 0 && <span className="notification-badge">{alerts.length}</span>}
+            </button>
+
+            {showNotifications && (
+              <div className="notification-dropdown">
+                <div className="notification-dropdown-header">
+                  <h4>Alerts &amp; Reminders</h4>
+                  <button type="button" onClick={() => setAlerts([])}>Clear</button>
+                </div>
+                <div className="notification-dropdown-body">
+                  {alerts.length === 0 ? (
+                    <div className="notification-empty">No alerts or notifications</div>
+                  ) : (
+                    alerts.map((alert) => (
+                      <div key={alert.id} className={`notification-item ${alert.type}`}>
+                        <div className="notification-item-text">
+                          <strong>{alert.title}</strong>
+                          <p>{alert.message}</p>
+                        </div>
+                        <small>{alert.time}</small>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <span className={`role-badge ${currentUser.role}`}>
             {currentUser.role === "admin" ? "🔑 Admin" : "👥 User (Read-Only)"}
           </span>
@@ -287,6 +403,7 @@ function App() {
             Log Out
           </button>
         </div>
+
       </header>
 
       {error && (
@@ -437,11 +554,13 @@ function App() {
           <DriverDashboard
             records={driverRecords}
             userRole={currentUser.role}
+            auditLogs={auditLogs}
             onClearAllRecords={clearAllRecords}
             onDeleteRecord={deleteDriverRecord}
             onEditRecord={startEditRecord}
             onUpdateStatus={updateDriverStatus}
           />
+
         </main>
       )}
 

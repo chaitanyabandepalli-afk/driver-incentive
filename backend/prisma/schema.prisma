@@ -7,9 +7,22 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Driver {
+  id            Int            @id @default(autoincrement())
+  driverId      String         @unique
+  name          String
+  licenseNumber String         @unique
+  phone         String
+  email         String         @unique
+  records       DriverRecord[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
 model DriverRecord {
-  id                    Int      @id @default(autoincrement())
+  id                    Int             @id @default(autoincrement())
   driverId              String
+  driver                Driver          @relation(fields: [driverId], references: [driverId], onDelete: Cascade)
   driverName            String
   month                 String
   tripsCompleted        Int
@@ -21,10 +34,58 @@ model DriverRecord {
   baseSalary            Int
   incentiveAmount       Int
   finalPayout           Int
-  status                String   @default("Pending")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  status                String          @default("Pending")
+  payments              PaymentRecord[]
+  auditLogs             AuditLog[]
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
   // Enforces that a driver can only have one incentive record per month
   @@unique([driverId, month])
+  @@index([driverId])
+  @@index([month])
 }
+
+model PaymentRecord {
+  id             Int          @id @default(autoincrement())
+  recordId       Int
+  record         DriverRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  amount         Int
+  paymentDate    DateTime     @default(now())
+  paymentMethod  String       @default("Bank Transfer")
+  transactionId  String       @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([recordId])
+}
+
+model Staff {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  role      String   @default("Operator")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id          Int           @id @default(autoincrement())
+  action      String
+  details     String
+  performedBy String
+  recordId    Int?
+  record      DriverRecord? @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+
+  @@index([recordId])
+}
+

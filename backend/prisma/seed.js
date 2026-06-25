@@ -1,6 +1,51 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+const sampleDrivers = [
+  {
+    driverId: "DRV001",
+    name: "Ravi Kumar",
+    licenseNumber: "DL-1420230000001",
+    phone: "9876543210",
+    email: "ravi.kumar@manivtha.com",
+  },
+  {
+    driverId: "DRV002",
+    name: "Suresh Reddy",
+    licenseNumber: "DL-1420230000002",
+    phone: "9876543211",
+    email: "suresh.reddy@manivtha.com",
+  },
+  {
+    driverId: "DRV003",
+    name: "Mahesh Yadav",
+    licenseNumber: "DL-1420230000003",
+    phone: "9876543212",
+    email: "mahesh.yadav@manivtha.com",
+  },
+  {
+    driverId: "DRV004",
+    name: "Arjun Singh",
+    licenseNumber: "DL-1420230000004",
+    phone: "9876543213",
+    email: "arjun.singh@manivtha.com",
+  },
+  {
+    driverId: "DRV005",
+    name: "Naveen Rao",
+    licenseNumber: "DL-1420230000005",
+    phone: "9876543214",
+    email: "naveen.rao@manivtha.com",
+  },
+  {
+    driverId: "DRV006",
+    name: "Kiran Kumar",
+    licenseNumber: "DL-1420230000006",
+    phone: "9876543215",
+    email: "kiran.kumar@manivtha.com",
+  },
+];
+
 const sampleRecords = [
   {
     driverId: "DRV001",
@@ -94,15 +139,84 @@ const sampleRecords = [
   },
 ];
 
-async function seedData() {
-  // Clear existing records
-  await prisma.driverRecord.deleteMany();
+const sampleStaff = [
+  {
+    email: "chaitanyabandepalli@gmail.com",
+    name: "Chaitanya Bandepalli",
+    role: "Admin",
+  },
+  {
+    email: "operator@manivtha.com",
+    name: "Operator Staff",
+    role: "Operator",
+  },
+];
 
-  for (const record of sampleRecords) {
-    await prisma.driverRecord.create({
-      data: record,
+const sampleCustomers = [
+  { name: "Ramesh Sharma", phone: "9112233445", email: "ramesh@gmail.com" },
+  { name: "Anitha Sen", phone: "9112233446", email: "anitha@gmail.com" },
+];
+
+async function seedData() {
+  // Clear existing data (in order of child to parent relations)
+  await prisma.auditLog.deleteMany();
+  await prisma.paymentRecord.deleteMany();
+  await prisma.driverRecord.deleteMany();
+  await prisma.driver.deleteMany();
+  await prisma.staff.deleteMany();
+  await prisma.customer.deleteMany();
+
+  // 1. Seed Drivers
+  for (const driver of sampleDrivers) {
+    await prisma.driver.create({
+      data: driver,
     });
   }
+
+  // 2. Seed Staff
+  for (const staff of sampleStaff) {
+    await prisma.staff.create({
+      data: staff,
+    });
+  }
+
+  // 3. Seed Customers
+  for (const customer of sampleCustomers) {
+    await prisma.customer.create({
+      data: customer,
+    });
+  }
+
+  // 4. Seed Driver Records
+  const createdRecords = [];
+  for (const record of sampleRecords) {
+    const created = await prisma.driverRecord.create({
+      data: record,
+    });
+    createdRecords.push(created);
+  }
+
+  // 5. Seed Payments for "Paid" records
+  for (const record of createdRecords) {
+    if (record.status === "Paid") {
+      await prisma.paymentRecord.create({
+        data: {
+          recordId: record.id,
+          amount: record.finalPayout,
+          transactionId: `TXN${record.driverId}${record.month.toUpperCase()}`,
+        },
+      });
+    }
+  }
+
+  // 6. Log Initial Seed Audit Log
+  await prisma.auditLog.create({
+    data: {
+      action: "DB_SEED",
+      details: "Database successfully seeded with drivers, staff, customers, records, and payment history.",
+      performedBy: "System",
+    },
+  });
 }
 
 if (require.main === module) {

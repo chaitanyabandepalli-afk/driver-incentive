@@ -3,11 +3,13 @@ import { useState } from "react";
 function DriverDashboard({
   records,
   userRole,
+  auditLogs = [],
   onClearAllRecords,
   onDeleteRecord,
   onEditRecord,
   onUpdateStatus,
 }) {
+
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [monthFilter, setMonthFilter] = useState("All");
@@ -295,6 +297,8 @@ function DriverDashboard({
             <option value="Approved">Approved</option>
             <option value="Paid">Paid</option>
             <option value="Rejected">Rejected</option>
+            <option value="Archived">Archived</option>
+
           </select>
 
           <select
@@ -409,6 +413,8 @@ function DriverDashboard({
                         <option value="Approved">Approved</option>
                         <option value="Paid">Paid</option>
                         <option value="Rejected">Rejected</option>
+                        <option value="Archived">Archived</option>
+
                       </select>
                     </td>
                     <td>
@@ -584,7 +590,34 @@ function DriverDashboard({
           </div>
         </div>
       )}
+
+      {/* Recent Activity Timeline Feed */}
+      <div className="activity-timeline-card">
+        <h3>⏱️ Recent Operations Log (System Audits)</h3>
+        {(!auditLogs || auditLogs.length === 0) ? (
+          <div className="empty-state">No recent activity logs available.</div>
+        ) : (
+          <div className="timeline-feed">
+            {auditLogs.map((log) => {
+              const date = new Date(log.createdAt);
+              const dateStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+              const actionClass = log.action.split('_')[0].toLowerCase();
+              return (
+                <div key={log.id} className={`timeline-event ${actionClass}`}>
+                  <div className="timeline-event-header">
+                    <strong>{log.action}</strong>
+                    <span>{dateStr}</span>
+                  </div>
+                  <p>{log.details}</p>
+                  <span className="user-tag">By: {log.performedBy}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
      </section>
+
   </>
   );
 }
