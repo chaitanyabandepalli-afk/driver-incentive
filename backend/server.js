@@ -585,34 +585,75 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+    const ADMIN_EMAIL = "chaitanyabandepalli@gmail.com";
 
-    const user = await prisma.user.findUnique({
-      where: { email: trimmedEmail }
-    });
-
-    if (!user || user.password !== password) {
+    // Rule 1: Block any email that is not @gmail.com
+    if (!trimmedEmail.endsWith("@gmail.com")) {
       await prisma.loginSession.create({
         data: {
           userEmail: trimmedEmail,
-          role: user ? user.role : "Unknown",
+          role: "Unknown",
           status: "FAILED",
           ipAddress: ipAddress || req.ip || "Unknown"
         }
       });
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ error: "Only @gmail.com emails are allowed to login." });
     }
 
-    await prisma.loginSession.create({
+    // Rule 2: Admin email - check against fixed User table entry only
+    if (trimmedEmail === ADMIN_EMAIL) {
+      const adminUser = await prisma.user.findUnique({ where: { email: trimmedEmail } });
+      if (!adminUser || adminUser.password !== trimmedPassword) {
+        await prisma.loginSession.create({
+          data: { userEmail: trimmedEmail, role: "Admin", status: "FAILED", ipAddress: ipAddress || req.ip || "Unknown" }
+        });
+        return res.status(401).json({ error: "Invalid admin password." });
+      }
+      await prisma.loginSession.create({
+        data: { userEmail: trimmedEmail, role: "Admin", status: "SUCCESS", ipAddress: ipAddress || req.ip || "Unknown" }
+      });
+      const { password: _, ...adminData } = adminUser;
+      return res.json(adminData);
+    }
+
+    // Rule 3: All other @gmail.com emails - self-registration or verify existing password
+    const existingUser = await prisma.user.findUnique({ where: { email: trimmedEmail } });
+
+    if (existingUser) {
+      // User exists - password must match the one they first registered with
+      if (existingUser.password !== trimmedPassword) {
+        await prisma.loginSession.create({
+          data: { userEmail: trimmedEmail, role: "Operator", status: "FAILED", ipAddress: ipAddress || req.ip || "Unknown" }
+        });
+        return res.status(401).json({ error: "Wrong password. Please use the same password you registered with." });
+      }
+
+      // Password matches - login success
+      await prisma.loginSession.create({
+        data: { userEmail: trimmedEmail, role: "Operator", status: "SUCCESS", ipAddress: ipAddress || req.ip || "Unknown" }
+      });
+      const { password: _, ...userData } = existingUser;
+      return res.json(userData);
+    }
+
+    // First time login - auto-register this user in the User table
+    const newUser = await prisma.user.create({
       data: {
-        userEmail: trimmedEmail,
-        role: user.role,
-        status: "SUCCESS",
-        ipAddress: ipAddress || req.ip || "Unknown"
+        email: trimmedEmail,
+        password: trimmedPassword,
+        name: trimmedEmail.split("@")[0],
+        role: "Operator"
       }
     });
 
-    const { password: _, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
+    await prisma.loginSession.create({
+      data: { userEmail: trimmedEmail, role: "Operator", status: "SUCCESS", ipAddress: ipAddress || req.ip || "Unknown" }
+    });
+
+    const { password: _, ...newUserData } = newUser;
+    return res.json(newUserData);
+
   } catch (error) {
     console.error("Login endpoint error:", error);
     res.status(500).json({ error: "Internal server error during login" });
