@@ -18,6 +18,7 @@ function DriverEntryForm({
   editingRecord,
   onUpdateRecord,
   onCancelEdit,
+  t,
 }) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
@@ -112,34 +113,32 @@ function DriverEntryForm({
     const baseSalary = Number(formData.baseSalary);
 
     if (!formData.driverId.trim()) {
-      newErrors.driverId = "Driver ID is required";
+      newErrors.driverId = t("val.driverIdRequired");
     }
 
     if (!formData.driverName.trim()) {
-      newErrors.driverName = "Driver name is required";
+      newErrors.driverName = t("val.driverNameRequired");
     }
 
     if (!formData.month) {
-      newErrors.month = "Please select month";
+      newErrors.month = t("val.selectMonth");
     }
 
     if (formData.tripsCompleted === "" || tripsCompleted < 0) {
-      newErrors.tripsCompleted = "Trips completed must be 0 or more";
+      newErrors.tripsCompleted = t("val.tripsMin");
     }
 
     if (formData.onTimeTrips === "" || onTimeTrips < 0) {
-      newErrors.onTimeTrips = "On-time trips must be 0 or more";
+      newErrors.onTimeTrips = t("val.onTimeMin");
     }
 
     if (formData.lateTrips === "" || lateTrips < 0) {
-      newErrors.lateTrips = "Late trips must be 0 or more";
+      newErrors.lateTrips = t("val.lateMin");
     }
 
     if (onTimeTrips + lateTrips > tripsCompleted) {
-      newErrors.onTimeTrips =
-        "On-time trips + late trips cannot be more than total trips";
-      newErrors.lateTrips =
-        "On-time trips + late trips cannot be more than total trips";
+      newErrors.onTimeTrips = t("val.tripsExceed");
+      newErrors.lateTrips = t("val.tripsExceed");
     }
 
     if (
@@ -147,15 +146,15 @@ function DriverEntryForm({
       customerRating < 0 ||
       customerRating > 5
     ) {
-      newErrors.customerRating = "Rating must be between 0 and 5";
+      newErrors.customerRating = t("val.ratingRange");
     }
 
     if (formData.complaints === "" || complaints < 0) {
-      newErrors.complaints = "Complaints must be 0 or more";
+      newErrors.complaints = t("val.complaintsMin");
     }
 
     if (formData.baseSalary === "" || baseSalary < 0) {
-      newErrors.baseSalary = "Base salary must be 0 or more";
+      newErrors.baseSalary = t("val.salaryMin");
     }
 
     return newErrors;
@@ -210,15 +209,27 @@ function DriverEntryForm({
     }
   };
 
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
   return (
     <section className="form-section">
       <div className="section-header">
-        <p className="section-tag">Performance Entry</p>
-        <h2>{editingRecord ? "Edit Driver Record" : "Driver Entry Form"}</h2>
-        <p>
-          Enter monthly driver performance details. The system will automatically
-          calculate punctuality percentage, incentive amount, and final payout.
-        </p>
+        <p className="section-tag">{t("form.sectionTag")}</p>
+        <h2>{editingRecord ? t("form.editTitle") : t("form.sectionTitle")}</h2>
+        <p>{t("form.sectionDesc")}</p>
       </div>
 
       <div className="form-card">
@@ -226,69 +237,62 @@ function DriverEntryForm({
           {errors.submit && <div className="form-submit-error">{errors.submit}</div>}
           <div className="form-grid">
             <div className="form-group">
-              <label>Driver ID</label>
+              <label>{t("form.driverId")}</label>
               <input
                 type="text"
                 name="driverId"
                 value={formData.driverId}
                 onChange={handleChange}
-                placeholder="Example: DRV001"
+                placeholder={t("form.driverIdPlaceholder")}
               />
               {errors.driverId && <small>{errors.driverId}</small>}
             </div>
 
             <div className="form-group">
-              <label>Driver Name</label>
+              <label>{t("form.driverName")}</label>
               <input
                 type="text"
                 name="driverName"
                 value={formData.driverName}
                 onChange={handleChange}
-                placeholder="Enter driver name"
+                placeholder={t("form.driverNamePlaceholder")}
               />
               {errors.driverName && <small>{errors.driverName}</small>}
             </div>
 
             <div className="form-group">
-              <label>Month</label>
+              <label>{t("form.month")}</label>
               <select
                 name="month"
                 value={formData.month}
                 onChange={handleChange}
               >
-                <option value="">Select month</option>
-                <option value="January">January</option>
-                <option value="February">February</option>
-                <option value="March">March</option>
-                <option value="April">April</option>
-                <option value="May">May</option>
-                <option value="June">June</option>
-                <option value="July">July</option>
-                <option value="August">August</option>
-                <option value="September">September</option>
-                <option value="October">October</option>
-                <option value="November">November</option>
-                <option value="December">December</option>
+                <option value="">{t("form.selectMonth")}</option>
+                {months.map((m) => (
+                  <option key={m} value={m}>
+                    {t(`month.${m}`)}
+                  </option>
+                ))}
               </select>
               {errors.month && <small>{errors.month}</small>}
             </div>
 
             <div className="form-group">
-              <label>Status</label>
+              <label>{t("form.status")}</label>
               <select
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
               >
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Paid">Paid</option>
-                <option value="Rejected">Rejected</option>
+                <option value="Pending">{t("status.Pending")}</option>
+                <option value="Approved">{t("status.Approved")}</option>
+                <option value="Paid">{t("status.Paid")}</option>
+                <option value="Rejected">{t("status.Rejected")}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label>Trips Completed</label>
+              <label>{t("form.tripsCompleted")}</label>
               <input
                 type="number"
                 name="tripsCompleted"
@@ -301,7 +305,7 @@ function DriverEntryForm({
             </div>
 
             <div className="form-group">
-              <label>On-time Trips</label>
+              <label>{t("form.onTimeTrips")}</label>
               <input
                 type="number"
                 name="onTimeTrips"
@@ -314,7 +318,7 @@ function DriverEntryForm({
             </div>
 
             <div className="form-group">
-              <label>Late Trips</label>
+              <label>{t("form.lateTrips")}</label>
               <input
                 type="number"
                 name="lateTrips"
@@ -327,7 +331,7 @@ function DriverEntryForm({
             </div>
 
             <div className="form-group">
-              <label>Customer Rating</label>
+              <label>{t("form.customerRating")}</label>
               <input
                 type="number"
                 name="customerRating"
@@ -342,7 +346,7 @@ function DriverEntryForm({
             </div>
 
             <div className="form-group">
-              <label>Complaints</label>
+              <label>{t("form.complaints")}</label>
               <input
                 type="number"
                 name="complaints"
@@ -355,7 +359,7 @@ function DriverEntryForm({
             </div>
 
             <div className="form-group">
-              <label>Base Salary</label>
+              <label>{t("form.baseSalary")}</label>
               <input
                 type="number"
                 name="baseSalary"
@@ -370,28 +374,28 @@ function DriverEntryForm({
 
           <div className="incentive-preview">
             <div>
-              <span>Punctuality</span>
+              <span>{t("form.punctuality")}</span>
               <strong>{preview.punctualityPercentage}%</strong>
             </div>
 
             <div>
-              <span>Incentive</span>
+              <span>{t("form.incentive")}</span>
               <strong>₹{preview.incentiveAmount}</strong>
             </div>
 
             <div>
-              <span>Final Payout</span>
+              <span>{t("form.finalPayout")}</span>
               <strong>₹{preview.finalPayout}</strong>
             </div>
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="submit-btn">
-              {editingRecord ? "Update Driver Record" : "Save Driver Record"}
+            <button type="submit" className="submit-btn glow-btn">
+              {editingRecord ? t("form.update") : t("form.save")}
             </button>
 
             <button type="button" className="reset-btn" onClick={handleReset}>
-              {editingRecord ? "Cancel Edit" : "Reset Form"}
+              {editingRecord ? t("form.cancelEdit") : t("form.reset")}
             </button>
           </div>
         </form>

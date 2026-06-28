@@ -1,8 +1,10 @@
 import { useState } from "react";
+import LanguageSwitcher from "./LanguageSwitcher";
+import ThemeToggle from "./ThemeToggle";
 
 const API_BASE_URL = "https://driver-incentive-1.onrender.com/api";
 
-function LoginCard({ onLogin }) {
+function LoginCard({ onLogin, t, language, onLanguageChange, theme, onThemeChange }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +16,7 @@ function LoginCard({ onLogin }) {
     setError("");
 
     if (!username.trim() || !password.trim()) {
-      setError("Please fill in both fields.");
+      setError(t("login.fillBoth"));
       return;
     }
 
@@ -47,22 +49,28 @@ function LoginCard({ onLogin }) {
 
   return (
     <div className="login-container">
+      {/* Header-like floating controls on Login Screen */}
+      <div className="login-controls">
+        <LanguageSwitcher language={language} onLanguageChange={onLanguageChange} />
+        <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
+      </div>
+
       <div className="login-card-wrapper">
         <div className="login-header">
-          <p className="login-tag">Manivtha Tours &amp; Travels</p>
-          <h2>Driver Tracker Login</h2>
-          <p>Sign in to access driver incentives and performance metrics.</p>
+          <p className="login-tag">{t("login.tag")}</p>
+          <h2>{t("login.title")}</h2>
+          <p>{t("login.subtitle")}</p>
         </div>
 
         {error && <div className="login-error-banner">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Username or Email</label>
+            <label htmlFor="username">{t("login.username")}</label>
             <input
               id="username"
               type="text"
-              placeholder="Enter username or email"
+              placeholder={t("login.usernamePlaceholder")}
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               className="login-input"
@@ -71,12 +79,12 @@ function LoginCard({ onLogin }) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">{t("login.password")}</label>
             <div className="password-input-wrapper">
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter password"
+                placeholder={t("login.passwordPlaceholder")}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="login-input"
@@ -95,7 +103,7 @@ function LoginCard({ onLogin }) {
           </div>
 
           <button type="submit" className="login-submit-btn" disabled={loading}>
-            {loading ? "Signing In..." : "Sign In"}
+            {loading ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
       </div>
@@ -104,4 +112,3 @@ function LoginCard({ onLogin }) {
 }
 
 export default LoginCard;
-

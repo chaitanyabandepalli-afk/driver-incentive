@@ -4,6 +4,9 @@ import DriverEntryForm from "./components/DriverEntryForm";
 import DriverDashboard from "./components/DriverDashboard";
 import ReportsAnalytics from "./components/ReportsAnalytics";
 import LoginCard from "./components/LoginCard";
+import LanguageSwitcher from "./components/LanguageSwitcher";
+import ThemeToggle from "./components/ThemeToggle";
+import { t as translate } from "./translations";
 
 const API_BASE_URL = "https://driver-incentive-1.onrender.com/api";
 
@@ -22,13 +25,35 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Language & Theme state with localStorage persistence
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem("app-language") || "en";
+  });
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("app-theme") || "dark";
+  });
+
+  // Translation helper bound to current language
+  const t = (key, params) => translate(language, key, params);
+
+  // Apply theme on mount and change
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("app-theme", theme);
+  }, [theme]);
+
+  // Persist language preference
+  useEffect(() => {
+    localStorage.setItem("app-language", language);
+  }, [language]);
+
   const handleLogin = (user) => {
     setCurrentUser(user);
     goToPage("home");
   };
 
   const handleLogout = () => {
-    const confirmLogout = window.confirm("Are you sure you want to log out?");
+    const confirmLogout = window.confirm(t("header.logoutConfirm"));
     if (confirmLogout) {
       setCurrentUser(null);
       setEditingRecord(null);
@@ -72,7 +97,7 @@ function App() {
       }
       setWakingUp(false);
       setRetryAttempt(0);
-      setError("Could not connect to the backend database server. The server took too long to wake up. Please click 'Retry Connection' to try again.");
+      setError(t("error.connection"));
       setLoading(false);
     }
   };
@@ -98,9 +123,9 @@ function App() {
         newAlerts.push({
           id: alertId++,
           type: "warning",
-          title: "Low Punctuality Alert",
-          message: `${record.driverName} (${record.driverId}) is at ${record.punctualityPercentage}% punctuality in ${record.month}.`,
-          time: "Just now"
+          title: t("alert.lowPunctuality"),
+          message: `${record.driverName} (${record.driverId}) - ${record.punctualityPercentage}% ${t("form.punctuality").toLowerCase()} - ${record.month}.`,
+          time: t("alert.justNow")
         });
       }
 
@@ -109,9 +134,9 @@ function App() {
         newAlerts.push({
           id: alertId++,
           type: "danger",
-          title: "Complaints Escalation",
-          message: `${record.driverName} has received ${record.complaints} complaints. Rating is ${record.customerRating}/5.`,
-          time: "Just now"
+          title: t("alert.complaints"),
+          message: `${record.driverName} - ${record.complaints} ${t("form.complaints").toLowerCase()}. ${t("table.rating")}: ${record.customerRating}/5.`,
+          time: t("alert.justNow")
         });
       }
 
@@ -120,9 +145,9 @@ function App() {
         newAlerts.push({
           id: alertId++,
           type: "info",
-          title: "Pending Status Review",
-          message: `${record.driverName} (${record.month}) incentive is waiting for approval.`,
-          time: "Review needed"
+          title: t("alert.pendingReview"),
+          message: `${record.driverName} (${record.month}) - ${t("dash.pending").toLowerCase()}.`,
+          time: t("alert.reviewNeeded")
         });
       }
     });
@@ -131,14 +156,14 @@ function App() {
       newAlerts.push({
         id: alertId++,
         type: "deadline",
-        title: "Submit Monthly Logs",
-        message: "Operations deadline: Approve all June performance records before the system lock.",
-        time: "System reminder"
+        title: t("alert.submitLogs"),
+        message: t("alert.deadline"),
+        time: t("alert.systemReminder")
       });
     }
 
     setAlerts(newAlerts);
-  }, [driverRecords]);
+  }, [driverRecords, language]);
 
   const goToPage = (pageName) => {
     setActivePage(pageName);
@@ -162,7 +187,7 @@ function App() {
       setDriverRecords((prevRecords) => [data, ...prevRecords]);
       setEditingRecord(null);
       goToPage("dashboard");
-      alert("Driver record saved successfully!");
+      alert(t("form.savedSuccess"));
       await fetchAuditLogs();
     } catch (err) {
       console.error(err);
@@ -192,7 +217,7 @@ function App() {
       );
       setEditingRecord(null);
       goToPage("dashboard");
-      alert("Driver record updated successfully!");
+      alert(t("form.updatedSuccess"));
       await fetchAuditLogs();
     } catch (err) {
       console.error(err);
@@ -225,9 +250,7 @@ function App() {
   };
 
   const clearAllRecords = async () => {
-    const confirmClear = window.confirm(
-      "Are you sure you want to delete all saved driver records?"
-    );
+    const confirmClear = window.confirm(t("dash.confirmClear"));
 
     if (confirmClear) {
       setLoading(true);
@@ -253,9 +276,7 @@ function App() {
   };
 
   const deleteDriverRecord = async (recordId) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this driver record?"
-    );
+    const confirmDelete = window.confirm(t("dash.confirmDelete"));
 
     if (confirmDelete) {
       setLoading(true);
@@ -307,7 +328,7 @@ function App() {
       await fetchRecords();
       await fetchAuditLogs();
       goToPage("dashboard");
-      alert("Sample data loaded successfully!");
+      alert(t("form.sampleSuccess"));
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -339,7 +360,7 @@ function App() {
           </video>
           <div className="global-video-overlay"></div>
         </div>
-        <LoginCard onLogin={handleLogin} />
+        <LoginCard onLogin={handleLogin} t={t} language={language} onLanguageChange={setLanguage} theme={theme} onThemeChange={setTheme} />
       </>
     );
   }
@@ -357,9 +378,15 @@ function App() {
       <header className="global-header">
         <div className="header-brand">
           <span className="logo-icon">🚗</span>
-          <h1>Manivtha Tours &amp; Travels</h1>
+          <h1>{t("header.brand")}</h1>
         </div>
         <div className="header-user-info">
+          {/* Language Switcher */}
+          <LanguageSwitcher language={language} onLanguageChange={setLanguage} />
+
+          {/* Theme Toggle */}
+          <ThemeToggle theme={theme} onThemeChange={setTheme} />
+
           {/* Notification Bell Dropdown */}
           <div className="notification-bell-container">
             <button
@@ -374,12 +401,12 @@ function App() {
             {showNotifications && (
               <div className="notification-dropdown">
                 <div className="notification-dropdown-header">
-                  <h4>Alerts &amp; Reminders</h4>
-                  <button type="button" onClick={() => setAlerts([])}>Clear</button>
+                  <h4>{t("notifications.title")}</h4>
+                  <button type="button" onClick={() => setAlerts([])}>{t("notifications.clear")}</button>
                 </div>
                 <div className="notification-dropdown-body">
                   {alerts.length === 0 ? (
-                    <div className="notification-empty">No alerts or notifications</div>
+                    <div className="notification-empty">{t("notifications.empty")}</div>
                   ) : (
                     alerts.map((alert) => (
                       <div key={alert.id} className={`notification-item ${alert.type}`}>
@@ -397,10 +424,10 @@ function App() {
           </div>
 
           <span className={`role-badge ${currentUser.role}`}>
-            {currentUser.role === "admin" ? "🔑 Admin" : "👥 User (Read-Only)"}
+            {currentUser.role === "admin" ? t("header.admin") : t("header.user")}
           </span>
           <button type="button" className="logout-btn" onClick={handleLogout}>
-            Log Out
+            {t("header.logout")}
           </button>
         </div>
 
@@ -409,7 +436,7 @@ function App() {
       {error && (
         <div className="connection-error-banner">
           <span>⚠️ {error}</span>
-          <button type="button" onClick={fetchRecords} className="retry-btn">Retry Connection</button>
+          <button type="button" onClick={fetchRecords} className="retry-btn">{t("error.retry")}</button>
         </div>
       )}
 
@@ -418,8 +445,8 @@ function App() {
           <div className="spinner"></div>
           <p>
             {wakingUp
-              ? `Waking up database server... (Attempt ${retryAttempt}/15 - takes up to 75 seconds on cold start)`
-              : "Connecting to Supabase database..."}
+              ? `${t("loading.wakingUp")} (${t("loading.attempt")} ${retryAttempt}/15 - ${t("loading.coldStart")})`
+              : t("loading.connecting")}
           </p>
         </div>
       )}
@@ -429,14 +456,12 @@ function App() {
           {/* ── Hero Section ── */}
           <section className="home-hero">
             <div className="home-hero-content">
-              <p className="tagline">Manivtha Tours &amp; Travels</p>
+              <p className="tagline">{t("home.tagline")}</p>
 
-              <h1>Driver Incentive &amp; Performance Bonus Tracker</h1>
+              <h1>{t("home.title")}</h1>
 
               <p className="hero-description">
-                A digital system to track driver performance, calculate
-                monthly incentives, monitor KPIs, and help management reward
-                top-performing drivers fairly.
+                {t("home.description")}
               </p>
 
               <div className="home-actions-grid">
@@ -446,8 +471,8 @@ function App() {
                   onClick={() => goToPage("dashboard")}
                 >
                   <span>📊</span>
-                  <strong>Open Dashboard</strong>
-                  <small>View driver records, filters, sorting, and status.</small>
+                  <strong>{t("home.openDashboard")}</strong>
+                  <small>{t("home.dashboardDesc")}</small>
                 </button>
 
                 <button
@@ -455,18 +480,18 @@ function App() {
                   className={`nav-card ${currentUser.role === "user" ? "nav-card-locked" : ""}`}
                   onClick={() => {
                     if (currentUser.role === "user") {
-                      alert("Access Denied: Admin privileges are required to add driver records.");
+                      alert(t("home.accessDenied"));
                     } else {
                       goToPage("form");
                     }
                   }}
                 >
                   <span>{currentUser.role === "user" ? "🔒" : "➕"}</span>
-                  <strong>Add Driver Record</strong>
+                  <strong>{t("home.addRecord")}</strong>
                   <small>
                     {currentUser.role === "user"
-                      ? "Admin access required to create new records."
-                      : "Enter performance data and calculate incentive."}
+                      ? t("home.addRecordLocked")
+                      : t("home.addRecordDesc")}
                   </small>
                 </button>
 
@@ -476,8 +501,8 @@ function App() {
                   onClick={() => goToPage("reports")}
                 >
                   <span>📈</span>
-                  <strong>View Reports</strong>
-                  <small>Check analytics, payouts, and monthly summaries.</small>
+                  <strong>{t("home.viewReports")}</strong>
+                  <small>{t("home.reportsDesc")}</small>
                 </button>
 
                 <button
@@ -485,18 +510,18 @@ function App() {
                   className={`nav-card sample-nav-card ${currentUser.role === "user" ? "nav-card-locked" : ""}`}
                   onClick={() => {
                     if (currentUser.role === "user") {
-                      alert("Access Denied: Admin privileges are required to load sample data.");
+                      alert(t("home.accessDeniedSample"));
                     } else {
                       loadSampleRecords();
                     }
                   }}
                 >
                   <span>{currentUser.role === "user" ? "🔒" : "⚡"}</span>
-                  <strong>Load Sample Data</strong>
+                  <strong>{t("home.loadSample")}</strong>
                   <small>
                     {currentUser.role === "user"
-                      ? "Admin access required to populate demo records."
-                      : "Add demo records and open the dashboard."}
+                      ? t("home.loadSampleLocked")
+                      : t("home.loadSampleDesc")}
                   </small>
                 </button>
               </div>
@@ -516,12 +541,12 @@ function App() {
                 goToPage("home");
               }}
             >
-              ← Back to Home
+              {t("nav.backHome")}
             </button>
 
             <div className="page-title-box">
-              <p>Page 2 of 4</p>
-              <h2>{editingRecord ? "Edit Driver Record" : "Add Driver Record"}</h2>
+              <p>{t("nav.page")} 2 {t("nav.of")} 4</p>
+              <h2>{editingRecord ? t("form.editTitle") : t("form.title")}</h2>
             </div>
           </div>
 
@@ -530,6 +555,7 @@ function App() {
             editingRecord={editingRecord}
             onUpdateRecord={updateDriverRecord}
             onCancelEdit={cancelEdit}
+            t={t}
           />
         </main>
       )}
@@ -542,12 +568,12 @@ function App() {
               className="back-home-btn"
               onClick={() => goToPage("home")}
             >
-              ← Back to Home
+              {t("nav.backHome")}
             </button>
 
             <div className="page-title-box">
-              <p>Page 3 of 4</p>
-              <h2>Dashboard</h2>
+              <p>{t("nav.page")} 3 {t("nav.of")} 4</p>
+              <h2>{t("page.dashboard")}</h2>
             </div>
           </div>
 
@@ -559,6 +585,7 @@ function App() {
             onDeleteRecord={deleteDriverRecord}
             onEditRecord={startEditRecord}
             onUpdateStatus={updateDriverStatus}
+            t={t}
           />
 
         </main>
@@ -572,22 +599,22 @@ function App() {
               className="back-home-btn"
               onClick={() => goToPage("home")}
             >
-              ← Back to Home
+              {t("nav.backHome")}
             </button>
 
             <div className="page-title-box">
-              <p>Page 4 of 4</p>
-              <h2>Reports & Analytics</h2>
+              <p>{t("nav.page")} 4 {t("nav.of")} 4</p>
+              <h2>{t("page.reportsAnalytics")}</h2>
             </div>
           </div>
 
-          <ReportsAnalytics records={driverRecords} />
+          <ReportsAnalytics records={driverRecords} t={t} />
         </main>
       )}
 
       <footer className="footer">
-        <p>Driver Incentive & Performance Bonus Tracker</p>
-        <span>Built for Manivtha Tours & Travels</span>
+        <p>{t("footer.title")}</p>
+        <span>{t("footer.subtitle")}</span>
       </footer>
     </div>
   );

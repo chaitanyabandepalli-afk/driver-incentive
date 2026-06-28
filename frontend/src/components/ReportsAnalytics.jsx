@@ -1,4 +1,4 @@
-function ReportsAnalytics({ records }) {
+function ReportsAnalytics({ records, t }) {
   const totalRecords = records.length;
 
   const totalTrips = records.reduce(
@@ -62,97 +62,91 @@ function ReportsAnalytics({ records }) {
   return (
     <section className="reports-section">
       <div className="section-header">
-        <p className="section-tag">Reports</p>
-        <h2>Reports & Analytics</h2>
-        <p>
-          Management can use this section to understand monthly incentive cost,
-          driver payout performance, and approval status distribution.
-        </p>
+        <p className="section-tag">{t("reports.sectionTag")}</p>
+        <h2>{t("reports.title")}</h2>
+        <p>{t("reports.subtitle")}</p>
       </div>
 
       {records.length === 0 ? (
         <div className="empty-state">
-          <h3>No data available for reports</h3>
-          <p>
-            Add driver records or load sample data to generate analytics and
-            performance insights.
-          </p>
+          <h3>{t("reports.noData")}</h3>
+          <p>{t("reports.noDataDesc")}</p>
         </div>
       ) : (
         <>
           <div className="reports-grid">
             <div className="reports-card">
-              <span>Total Records</span>
+              <span>{t("reports.totalRecords")}</span>
               <strong>{totalRecords}</strong>
-              <p>Driver performance entries stored</p>
+              <p>{t("reports.totalRecordsDesc")}</p>
             </div>
 
             <div className="reports-card">
-              <span>Total Trips</span>
+              <span>{t("reports.totalTrips")}</span>
               <strong>{totalTrips}</strong>
-              <p>Trips completed by all drivers</p>
+              <p>{t("reports.totalTripsDesc")}</p>
             </div>
 
             <div className="reports-card">
-              <span>Total Incentive</span>
+              <span>{t("reports.totalIncentive")}</span>
               <strong>₹{totalIncentive}</strong>
-              <p>Extra bonus amount calculated</p>
+              <p>{t("reports.totalIncentiveDesc")}</p>
             </div>
 
             <div className="reports-card">
-              <span>Total Payout</span>
+              <span>{t("reports.totalPayout")}</span>
               <strong>₹{totalPayout}</strong>
-              <p>Base salary plus incentives</p>
+              <p>{t("reports.totalPayoutDesc")}</p>
             </div>
 
             <div className="reports-card">
-              <span>Average Incentive</span>
+              <span>{t("reports.avgIncentive")}</span>
               <strong>₹{averageIncentive}</strong>
-              <p>Average bonus per driver record</p>
+              <p>{t("reports.avgIncentiveDesc")}</p>
             </div>
 
             <div className="reports-card">
-              <span>Best Month</span>
-              <strong>{bestMonth ? bestMonth.month : "N/A"}</strong>
+              <span>{t("reports.bestMonth")}</span>
+              <strong>{bestMonth ? t(`month.${bestMonth.month}`) : "N/A"}</strong>
               <p>
                 {bestMonth
-                  ? `Highest incentive total: ₹${bestMonth.incentive}`
-                  : "No month data available"}
+                  ? `${t("reports.highestIncentive")}: ₹${bestMonth.incentive}`
+                  : t("reports.noMonthData")}
               </p>
             </div>
           </div>
 
           <div className="analytics-layout">
             <div className="chart-card">
-              <h3>Status Distribution</h3>
-              <p>Shows how many records are pending, approved, paid, or rejected.</p>
+              <h3>{t("reports.statusDistribution")}</h3>
+              <p>{t("reports.statusDesc")}</p>
 
               <div className="status-report-list">
                 <div className="status-report-item">
-                  <span>Pending</span>
+                  <span>{t("status.Pending")}</span>
                   <strong>{statusCounts.Pending}</strong>
                 </div>
 
                 <div className="status-report-item">
-                  <span>Approved</span>
+                  <span>{t("status.Approved")}</span>
                   <strong>{statusCounts.Approved}</strong>
                 </div>
 
                 <div className="status-report-item">
-                  <span>Paid</span>
+                  <span>{t("status.Paid")}</span>
                   <strong>{statusCounts.Paid}</strong>
                 </div>
 
                 <div className="status-report-item">
-                  <span>Rejected</span>
+                  <span>{t("status.Rejected")}</span>
                   <strong>{statusCounts.Rejected}</strong>
                 </div>
               </div>
             </div>
 
             <div className="chart-card">
-              <h3>Monthly Incentive Summary</h3>
-              <p>Simple bar view of incentive amount generated each month.</p>
+              <h3>{t("reports.monthlySummary")}</h3>
+              <p>{t("reports.monthlyDesc")}</p>
 
               <div className="monthly-bars">
                 {monthlySummary.map((item) => {
@@ -164,7 +158,7 @@ function ReportsAnalytics({ records }) {
                   return (
                     <div className="monthly-bar-row" key={item.month}>
                       <div className="monthly-bar-label">
-                        <span>{item.month}</span>
+                        <span>{t(`month.${item.month}`)}</span>
                         <strong>₹{item.incentive}</strong>
                       </div>
 
@@ -175,7 +169,7 @@ function ReportsAnalytics({ records }) {
                         ></div>
                       </div>
 
-                      <small>{item.records} record(s)</small>
+                      <small>{item.records} {t("reports.records")}</small>
                     </div>
                   );
                 })}
