@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Helper function to calculate performance metrics
-function calculateIncentive(tripsCompleted, onTimeTrips, customerRating, complaints, baseSalary) {
+async function calculateIncentiveDynamic(tripsCompleted, onTimeTrips, customerRating, complaints, baseSalary) {
   const punctualityPercentage =
     tripsCompleted > 0
       ? Number(((onTimeTrips / tripsCompleted) * 100).toFixed(1))
@@ -22,27 +22,50 @@ function calculateIncentive(tripsCompleted, onTimeTrips, customerRating, complai
 
   let incentiveAmount = 0;
 
-  if (
-    tripsCompleted >= 40 &&
-    punctualityPercentage >= 90 &&
-    customerRating >= 4.5 &&
-    complaints === 0
-  ) {
-    incentiveAmount = 5000;
-  } else if (
-    tripsCompleted >= 30 &&
-    punctualityPercentage >= 80 &&
-    customerRating >= 4.0 &&
-    complaints <= 1
-  ) {
-    incentiveAmount = 3000;
-  } else if (
-    tripsCompleted >= 20 &&
-    punctualityPercentage >= 70 &&
-    customerRating >= 3.5 &&
-    complaints <= 2
-  ) {
-    incentiveAmount = 1000;
+  try {
+    const configs = await prisma.systemConfig.findMany({
+      orderBy: { payoutAmount: "desc" }
+    });
+
+    for (const config of configs) {
+      let reqPunctuality = 70;
+      if (config.requiredTrips >= 40) reqPunctuality = 90;
+      else if (config.requiredTrips >= 30) reqPunctuality = 80;
+
+      if (
+        tripsCompleted >= config.requiredTrips &&
+        punctualityPercentage >= reqPunctuality &&
+        customerRating >= config.requiredRating &&
+        complaints <= config.allowedComplaints
+      ) {
+        incentiveAmount = config.payoutAmount;
+        break;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to calculate incentive dynamically, falling back to static rules:", error);
+    if (
+      tripsCompleted >= 40 &&
+      punctualityPercentage >= 90 &&
+      customerRating >= 4.5 &&
+      complaints === 0
+    ) {
+      incentiveAmount = 5000;
+    } else if (
+      tripsCompleted >= 30 &&
+      punctualityPercentage >= 80 &&
+      customerRating >= 4.0 &&
+      complaints <= 1
+    ) {
+      incentiveAmount = 3000;
+    } else if (
+      tripsCompleted >= 20 &&
+      punctualityPercentage >= 70 &&
+      customerRating >= 3.5 &&
+      complaints <= 2
+    ) {
+      incentiveAmount = 1000;
+    }
   }
 
   const finalPayout = baseSalary + incentiveAmount;
@@ -292,7 +315,7 @@ app.post("/api/records", async (req, res) => {
       await logAudit("DRIVER_CREATED", `Automatically registered master profile for driver ${trimmedDriverId}.`, performedBy || "System");
     }
 
-    const metrics = calculateIncentive(
+    const metrics = await calculateIncentiveDynamic(
       Number(tripsCompleted),
       Number(onTimeTrips),
       Number(customerRating),
@@ -409,7 +432,7 @@ app.put("/api/records/:id", async (req, res) => {
       await logAudit("DRIVER_CREATED", `Automatically registered master profile for driver ${trimmedDriverId}.`, performedBy || "System");
     }
 
-    const metrics = calculateIncentive(
+    const metrics = await calculateIncentiveDynamic(
       Number(tripsCompleted),
       Number(onTimeTrips),
       Number(customerRating),
@@ -553,6 +576,76 @@ app.post("/api/records/seed", async (req, res) => {
   }
 });
 
+// 9. POST login user
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password, ipAddress } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    const user = await prisma.user.findUnique({
+      where: { email: trimmedEmail }
+    });
+
+    if (!user || user.password !== password) {
+      await prisma.loginSession.create({
+        data: {
+          userEmail: trimmedEmail,
+          role: user ? user.role : "Unknown",
+          status: "FAILED",
+          ipAddress: ipAddress || req.ip || "Unknown"
+        }
+      });
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    await prisma.loginSession.create({
+      data: {
+        userEmail: trimmedEmail,
+        role: user.role,
+        status: "SUCCESS",
+        ipAddress: ipAddress || req.ip || "Unknown"
+      }
+    });
+
+    const { password: _, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error("Login endpoint error:", error);
+    res.status(500).json({ error: "Internal server error during login" });
+  }
+});
+
+// 10. GET login sessions
+app.get("/api/auth/sessions", async (req, res) => {
+  try {
+    const sessions = await prisma.loginSession.findMany({
+      orderBy: { id: "desc" },
+      take: 20
+    });
+    res.json(sessions);
+  } catch (error) {
+    console.error("Fetch sessions error:", error);
+    res.status(500).json({ error: "Failed to fetch login sessions" });
+  }
+});
+
+// 11. GET configurations
+app.get("/api/config", async (req, res) => {
+  try {
+    const configs = await prisma.systemConfig.findMany({
+      orderBy: { payoutAmount: "desc" }
+    });
+    res.json(configs);
+  } catch (error) {
+    console.error("Fetch configs error:", error);
+    res.status(500).json({ error: "Failed to fetch configurations" });
+  }
+});
+
 // Diagnostic endpoint to check database connectivity
 app.get("/api/diag", async (req, res) => {
   try {
@@ -562,6 +655,9 @@ app.get("/api/diag", async (req, res) => {
     const driverCount = await prisma.driver.count();
     const paymentCount = await prisma.paymentRecord.count();
     const auditCount = await prisma.auditLog.count();
+    const userCount = await prisma.user.count();
+    const sessionCount = await prisma.loginSession.count();
+    const configCount = await prisma.systemConfig.count();
     res.json({
       status: "success",
       message: "Database connection is working!",
@@ -569,6 +665,9 @@ app.get("/api/diag", async (req, res) => {
       driverCount,
       paymentCount,
       auditCount,
+      userCount,
+      sessionCount,
+      configCount,
       databaseUrl: maskedUrl
     });
   } catch (error) {

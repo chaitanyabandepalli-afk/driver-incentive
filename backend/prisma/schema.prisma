@@ -89,3 +89,34 @@ model AuditLog {
   @@index([recordId])
 }
 
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("Operator")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LoginSession {
+  id         Int      @id @default(autoincrement())
+  userEmail  String
+  role       String
+  loginTime  DateTime @default(now())
+  status     String   // "SUCCESS" or "FAILED"
+  ipAddress  String?
+}
+
+model SystemConfig {
+  id                Int      @id @default(autoincrement())
+  tierName          String   @unique // e.g. "Tier 1", "Tier 2", "Tier 3"
+  requiredTrips     Int
+  requiredRating    Float
+  allowedComplaints Int
+  payoutAmount      Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+

@@ -157,6 +157,45 @@ const sampleCustomers = [
   { name: "Anitha Sen", phone: "9112233446", email: "anitha@gmail.com" },
 ];
 
+const sampleUsers = [
+  {
+    email: "chaitanyabandepalli@gmail.com",
+    name: "Chaitanya Bandepalli",
+    password: "123456",
+    role: "Admin",
+  },
+  {
+    email: "operator@manivtha.com",
+    name: "Operator Staff",
+    password: "123456",
+    role: "Operator",
+  },
+];
+
+const sampleConfigs = [
+  {
+    tierName: "Tier 1",
+    requiredTrips: 40,
+    requiredRating: 4.5,
+    allowedComplaints: 0,
+    payoutAmount: 5000,
+  },
+  {
+    tierName: "Tier 2",
+    requiredTrips: 30,
+    requiredRating: 4.0,
+    allowedComplaints: 1,
+    payoutAmount: 3000,
+  },
+  {
+    tierName: "Tier 3",
+    requiredTrips: 20,
+    requiredRating: 3.5,
+    allowedComplaints: 2,
+    payoutAmount: 1000,
+  },
+];
+
 async function seedData() {
   // Clear existing data (in order of child to parent relations)
   await prisma.auditLog.deleteMany();
@@ -165,6 +204,9 @@ async function seedData() {
   await prisma.driver.deleteMany();
   await prisma.staff.deleteMany();
   await prisma.customer.deleteMany();
+  await prisma.loginSession.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.systemConfig.deleteMany();
 
   // 1. Seed Drivers
   for (const driver of sampleDrivers) {
@@ -187,7 +229,21 @@ async function seedData() {
     });
   }
 
-  // 4. Seed Driver Records
+  // 4. Seed Users
+  for (const user of sampleUsers) {
+    await prisma.user.create({
+      data: user,
+    });
+  }
+
+  // 5. Seed Configurations
+  for (const config of sampleConfigs) {
+    await prisma.systemConfig.create({
+      data: config,
+    });
+  }
+
+  // 6. Seed Driver Records
   const createdRecords = [];
   for (const record of sampleRecords) {
     const created = await prisma.driverRecord.create({
@@ -196,7 +252,7 @@ async function seedData() {
     createdRecords.push(created);
   }
 
-  // 5. Seed Payments for "Paid" records
+  // 7. Seed Payments for "Paid" records
   for (const record of createdRecords) {
     if (record.status === "Paid") {
       await prisma.paymentRecord.create({
@@ -209,11 +265,11 @@ async function seedData() {
     }
   }
 
-  // 6. Log Initial Seed Audit Log
+  // 8. Log Initial Seed Audit Log
   await prisma.auditLog.create({
     data: {
       action: "DB_SEED",
-      details: "Database successfully seeded with drivers, staff, customers, records, and payment history.",
+      details: "Database successfully seeded with drivers, users, configs, records, and payment history.",
       performedBy: "System",
     },
   });
